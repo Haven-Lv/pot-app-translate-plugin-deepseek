@@ -262,6 +262,45 @@ async function main() {
     }
     console.log('✓ 思考力度(auto 不发送 / low-high 发送 / 旧配置忽略)')
 
+    // 9. 思考参数按域名适配:各已知厂商用对应写法,未知网关保持 reasoning_effort
+    {
+        const send = (requestPath, reasoning) =>
+            run(
+                { requestPath, apiKey: 'sk', model: 'm', stream: 'false', reasoning },
+                { tauriHandler: () => okChoice('ok') }
+            ).then(({ calls }) => calls[0].options.body.payload)
+        let p
+        p = await send('https://open.bigmodel.cn/api/paas/v4', 'low')
+        assert.deepStrictEqual(p.thinking, { type: 'disabled' }, 'GLM 关闭思考应发 thinking.disabled')
+        assert.ok(!('reasoning_effort' in p), '关闭思考时不应再发 effort')
+        p = await send('https://open.bigmodel.cn/api/paas/v4', 'high')
+        assert.deepStrictEqual(p.thinking, { type: 'enabled' })
+        assert.strictEqual(p.reasoning_effort, 'high')
+        p = await send('api.deepseek.com', 'low')
+        assert.deepStrictEqual(p.thinking, { type: 'disabled' }, 'DeepSeek 关闭思考应发 thinking.disabled')
+        p = await send('https://ark.cn-beijing.volces.com/api/v3', 'low')
+        assert.deepStrictEqual(p.thinking, { type: 'disabled' }, '火山方舟关闭思考应发 thinking.disabled')
+        p = await send('https://dashscope.aliyuncs.com/compatible-mode/v1', 'low')
+        assert.strictEqual(p.enable_thinking, false, '百炼应发 enable_thinking=false')
+        assert.ok(!('reasoning_effort' in p) && !('thinking' in p), '百炼不应发其他思考字段')
+        p = await send('https://dashscope.aliyuncs.com/compatible-mode/v1', 'high')
+        assert.strictEqual(p.enable_thinking, true)
+        p = await send('http://127.0.0.1:11434/v1', 'low')
+        assert.strictEqual(p.think, false, 'Ollama 默认端口应发 think=false')
+        p = await send('https://generativelanguage.googleapis.com/v1beta/openai', 'low')
+        assert.strictEqual(p.reasoning_effort, 'low', 'Gemini 兼容层应发 reasoning_effort')
+        assert.ok(!('thinking' in p) && !('enable_thinking' in p), 'Gemini 不应收其他思考字段')
+        p = await send('https://api.openai.com/v1', 'low')
+        assert.strictEqual(p.reasoning_effort, 'low')
+        assert.ok(!('thinking' in p) && !('enable_thinking' in p) && !('think' in p), 'OpenAI 只应收 reasoning_effort')
+        // 用户网关(未知域名)行为保持不变
+        p = await send('http://127.0.0.1:3425/v1', 'low')
+        assert.strictEqual(p.reasoning_effort, 'low', '未知网关仍用 reasoning_effort')
+        p = await send('https://open.bigmodel.cn/api/paas/v4', 'auto')
+        assert.ok(!('thinking' in p) && !('reasoning_effort' in p), 'auto 对已知厂商也应零参数')
+    }
+    console.log('✓ 思考参数按域名适配(GLM/DeepSeek/方舟/百炼/Ollama/Gemini/OpenAI/网关)')
+
     console.log('\n全部通过 🎉')
 }
 

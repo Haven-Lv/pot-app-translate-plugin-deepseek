@@ -43,7 +43,33 @@ function buildUrls(requestPath) {
         chatUrl = `${parsed.origin}${pathname}/v1/chat/completions${parsed.search}`
         modelsUrl = `${parsed.origin}${pathname}/v1/models${parsed.search}`
     }
-    return { chatUrl, modelsUrl }
+    return { chatUrl, modelsUrl, parsed }
+}
+
+// 各家「思考控制」字段写法不同,且 OpenAI 等严格接口会拒绝陌生字段,
+// 因此只按已知域名发送对应写法;未知域名(各类中转网关)统一用 reasoning_effort
+function buildThinkingParams(parsed, reasoning) {
+    if (reasoning !== 'low' && reasoning !== 'high') {
+        return {}
+    }
+    const off = reasoning === 'low'
+    const host = (parsed?.hostname ?? '').toLowerCase()
+    // DeepSeek 官方 / 智谱 GLM / 火山方舟:thinking.type 开关,深入思考再带 effort
+    if (/(^|\.)deepseek\.com$/.test(host) || /(^|\.)bigmodel\.cn$/.test(host) || /(^|\.)volces\.com$/.test(host)) {
+        return off
+            ? { thinking: { type: 'disabled' } }
+            : { thinking: { type: 'enabled' }, reasoning_effort: 'high' }
+    }
+    // 阿里百炼 DashScope:enable_thinking
+    if (/(^|\.)aliyuncs\.com$/.test(host)) {
+        return { enable_thinking: !off }
+    }
+    // Ollama 默认端口:原生 think 参数(不识别时会被安全忽略)
+    if ((parsed?.port ?? '') === '11434') {
+        return { think: !off }
+    }
+    // OpenAI / Kimi / Gemini 兼容层 / 其他网关:reasoning_effort
+    return { reasoning_effort: off ? 'low' : 'high' }
 }
 
 function buildHeaders(apiKey) {
@@ -247,7 +273,7 @@ async function translate(text, from, to, options) {
     const { tauriFetch } = utils
     const { requestPath, apiKey, model, stream, reasoning } = config ?? {}
 
-    const { chatUrl, modelsUrl } = buildUrls(requestPath)
+    const { chatUrl, modelsUrl, parsed } = buildUrls(requestPath)
     const headers = buildHeaders(apiKey)
 
     const wanted = (model ?? '').trim()
@@ -265,12 +291,9 @@ async function translate(text, from, to, options) {
             content: `Translate into ${to}:\n"""\n${text}\n"""`,
         },
     ]
-    // 「思考力度」下拉:仅在用户明确选择时发送 reasoning_effort,
-    // 默认不发送(部分服务对非推理模型收到该参数会报错)
-    const body = { model: wanted, messages }
-    if (reasoning === 'low' || reasoning === 'high') {
-        body.reasoning_effort = reasoning
-    }
+    // 「思考力度」下拉:仅在用户明确选择时,按服务地址对应的写法发送思考控制参数,
+    // 默认不发送(部分服务对非推理模型收到思考参数会报错)
+    const body = { model: wanted, messages, ...buildThinkingParams(parsed, reasoning) }
 
     if (stream !== 'false') {
         try {
