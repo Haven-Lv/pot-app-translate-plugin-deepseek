@@ -31,4 +31,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ github.ref_name }} 通用 OpenAI 兼容翻译插件
+          body: |
+            pot-desktop 通用 OpenAI 兼容 AI 翻译插件:自定义服务地址 + API 密钥,支持 DeepSeek / OpenAI / Kimi / 智谱 / Ollama / one-api 等任何 OpenAI 兼容接口。
+
+            **安装**:下载下方 `plugin.com.generic.openai_compatible.potext`,在 pot 的 设置 → 服务设置 → 翻译服务 → 添加插件 中本地安装。
+
+            **配置**:填「服务地址」和「API 密钥」;「模型」留空或填 `?` 后随便翻译一句,可用模型列表会显示在结果框,复制一个填回配置即可。
           files: "*.potext"
