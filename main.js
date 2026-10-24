@@ -137,7 +137,7 @@ async function chatOnce(chatUrl, headers, body, fetchImpl) {
     const res = await fetchImpl(chatUrl, {
         method: 'POST',
         headers,
-        body: { type: 'Json', payload: body },
+        body: { type: 'Json', payload: { ...body, stream: false } },
     })
     if (!res.ok) {
         throw `Http Request Error\nHttp Status: ${res.status}\n${JSON.stringify(res.data)}`
@@ -179,6 +179,7 @@ async function streamChat(chatUrl, headers, body, setResult) {
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let target = ''
+    let reasoningChars = 0
     let buffer = ''
     try {
         while (true) {
@@ -203,9 +204,17 @@ async function streamChat(chatUrl, headers, body, setResult) {
                     if (chunk.error) {
                         throw `接口返回错误\n${JSON.stringify(chunk.error)}`
                     }
-                    const delta = chunk.choices?.[0]?.delta?.content
-                    if (delta) {
-                        target += delta
+                    const delta = chunk.choices?.[0]?.delta ?? {}
+                    // 推理模型会先持续输出思考过程;期间用进度提示占位,避免界面长时间空白
+                    const reasoning = delta.reasoning_content ?? delta.reasoning
+                    if (typeof reasoning === 'string' && reasoning !== '') {
+                        reasoningChars += reasoning.length
+                        if (target === '') {
+                            setResult?.(`💭 思考中(${reasoningChars} 字)…`)
+                        }
+                    }
+                    if (delta.content) {
+                        target += delta.content
                         setResult?.(target + '_')
                     }
                 } catch (e) {
@@ -220,15 +229,32 @@ async function streamChat(chatUrl, headers, body, setResult) {
         reader.releaseLock?.()
     }
     if (target.trim() === '') {
-        throw '模型没有返回任何内容。若该服务不支持流式输出,请把「流式输出」设为关闭后重试'
+        throw `模型没有返回任何内容${reasoningChars > 0 ? `(思考过程 ${reasoningChars} 字,但正文为空)` : ''}。若该服务不支持流式输出,请把「流式输出」设为关闭后重试`
     }
     return stripEdgeQuotes(target)
+}
+
+function parseExtraArguments(raw) {
+    const input = (raw ?? '').trim()
+    if (input === '') {
+        return {}
+    }
+    let parsed
+    try {
+        parsed = JSON.parse(input)
+    } catch {
+        throw '「额外请求参数」不是合法的 JSON,示例:{"reasoning_effort":"low"}'
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw '「额外请求参数」必须是一个 JSON 对象,示例:{"reasoning_effort":"low"}'
+    }
+    return parsed
 }
 
 async function translate(text, from, to, options) {
     const { config, setResult, utils } = options ?? {}
     const { tauriFetch } = utils
-    const { requestPath, apiKey, model, stream } = config ?? {}
+    const { requestPath, apiKey, model, stream, requestArguments } = config ?? {}
 
     const { chatUrl, modelsUrl } = buildUrls(requestPath)
     const headers = buildHeaders(apiKey)
@@ -248,7 +274,9 @@ async function translate(text, from, to, options) {
             content: `Translate into ${to}:\n"""\n${text}\n"""`,
         },
     ]
-    const body = { model: wanted, messages }
+    // 额外参数由用户显式填写(如推理力度、采样参数),随请求一并发送
+    const extra = parseExtraArguments(requestArguments)
+    const body = { ...extra, model: wanted, messages }
 
     if (stream !== 'false') {
         try {
@@ -257,7 +285,9 @@ async function translate(text, from, to, options) {
             if (!e?.useFallback) {
                 throw e
             }
-            // 跨域等原因导致窗口 fetch 不可用,自动降级为非流式请求
+            // 跨域等原因导致窗口 fetch 不可用(服务端未返回跨域响应头),
+            // 自动降级为非流式请求,期间给出提示避免界面看起来卡住
+            setResult?.('⏳ 该服务暂不支持流式输出(缺少跨域响应头),正在等待完整回复…')
         }
     }
     return await chatOnce(chatUrl, headers, body, tauriFetch)

@@ -21,6 +21,11 @@
       "type": "input"
     },
     {
+      "key": "requestArguments",
+      "display": "额外请求参数 (JSON, 可选)",
+      "type": "input"
+    },
+    {
       "key": "stream",
       "display": "流式输出",
       "type": "select",

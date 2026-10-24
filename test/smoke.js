@@ -165,33 +165,38 @@ async function main() {
     }
     console.log('✓ 非流式翻译(请求体 / 鉴权 / 引号剥离)')
 
-    // 4. 流式翻译:SSE 分片、跨块 JSON、reasoning_content 跳过、[DONE]
+    // 4. 流式翻译:SSE 分片、跨块 JSON、思考进度占位、[DONE]
     {
         const { value, results } = await run(
             { requestPath: 'https://api.deepseek.com', apiKey: 'sk', model: 'deepseek-chat' },
             {
                 windowFetch: sseWindowFetch([
-                    'data: {"choices":[{"delta":{"reasoning_content":"思考中"}}]}\n\n',
+                    'data: {"choices":[{"delta":{"reasoning_content":"先"}}]}\n\n',
+                    'data: {"choices":[{"delta":{"reasoning_content":"想一想"}}]}\n\n',
                     'data: {"choices":[{"delta":{"content":"你"}}]}\ndata: {"choices":[{"del',
                     'ta":{"content":"好"}}]}\n\ndata: [DONE]\n\n',
                 ]),
             }
         )
         assert.strictEqual(value, '你好')
-        assert.ok(results.length === 2 && results[1] === '你好_', 'setResult 应输出逐步结果')
+        assert.ok(results[0].startsWith('💭'), '思考阶段应显示进度占位')
+        assert.ok(results.includes('💭 思考中(4 字)…'), '思考进度应随分片累加')
+        assert.ok(results[results.length - 1] === '你好_', '正文阶段应输出逐步结果')
     }
-    console.log('✓ 流式翻译(SSE 分片拼接 / 跳过 reasoning_content)')
+    console.log('✓ 流式翻译(SSE 分片拼接 / 思考进度占位)')
 
-    // 5. 流式失败自动降级:window 不存在时回退 tauriFetch
+    // 5. 流式失败自动降级:window 不存在时回退 tauriFetch,并给出提示
     {
-        const { value, calls } = await run(
+        const { value, results, calls } = await run(
             { requestPath: 'https://api.deepseek.com', apiKey: 'sk', model: 'deepseek-chat' },
             { tauriHandler: () => okChoice('降级结果') }
         )
         assert.strictEqual(value, '降级结果')
+        assert.ok(results.some((r) => r.includes('不支持流式')), '降级时应提示正在等待完整回复')
         assert.strictEqual(calls[0].options.body.payload.messages.length, 2, '降级后应走非流式请求')
+        assert.strictEqual(calls[0].options.body.payload.stream, false, '非流式请求应显式 stream:false')
     }
-    console.log('✓ 流式不可用时自动降级非流式')
+    console.log('✓ 流式不可用时自动降级非流式(带提示)')
 
     // 6. 服务端忽略 stream 返回完整 JSON
     {
@@ -232,6 +237,40 @@ async function main() {
         )
     }
     console.log('✓ 错误处理(401 / 空内容 / content 数组 / 未填地址)')
+
+    // 8. 额外请求参数:JSON 合并、model/messages 不被覆盖、非法输入报错
+    {
+        const { value, calls } = await run(
+            {
+                requestPath: 'https://x.example/v1',
+                apiKey: 'sk',
+                model: 'glm',
+                stream: 'false',
+                requestArguments: '{"reasoning_effort":"low","model":"hacked","stream":true}',
+            },
+            { tauriHandler: () => okChoice('带参数') }
+        )
+        const payload = calls[0].options.body.payload
+        assert.strictEqual(value, '带参数')
+        assert.strictEqual(payload.reasoning_effort, 'low', '额外参数应随请求发送')
+        assert.strictEqual(payload.model, 'glm', '额外参数不得覆盖 model')
+        assert.strictEqual(payload.stream, false, 'stream 应以插件开关为准')
+        await assert.rejects(
+            run({ requestPath: 'https://x.example', apiKey: 'sk', model: 'm', stream: 'false', requestArguments: '{bad json' }),
+            (e) => String(e).includes('额外请求参数')
+        )
+        await assert.rejects(
+            run({ requestPath: 'https://x.example', apiKey: 'sk', model: 'm', stream: 'false', requestArguments: '["a"]' }),
+            (e) => String(e).includes('JSON 对象')
+        )
+        // 流式路径同样合并额外参数
+        const sse = await run(
+            { requestPath: 'https://x.example/v1', apiKey: 'sk', model: 'glm', requestArguments: '{"reasoning_effort":"low"}' },
+            { windowFetch: sseWindowFetch(['data: {"choices":[{"delta":{"content":"快"}}]}\n\n', 'data: [DONE]\n\n']) }
+        )
+        assert.strictEqual(sse.value, '快')
+    }
+    console.log('✓ 额外请求参数(JSON 合并 / 覆盖保护 / 非法输入)')
 
     console.log('\n全部通过 🎉')
 }
