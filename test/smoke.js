@@ -272,6 +272,21 @@ async function main() {
     }
     console.log('✓ 额外请求参数(JSON 合并 / 覆盖保护 / 非法输入)')
 
+    // 9. 思考力度下拉:auto 不发送、low/high 发送、额外参数优先
+    {
+        const mk = (reasoning, extra) =>
+            run(
+                { requestPath: 'https://x.example/v1', apiKey: 'sk', model: 'm', stream: 'false', reasoning, requestArguments: extra },
+                { tauriHandler: () => okChoice('ok') }
+            ).then(({ calls }) => calls[0].options.body.payload)
+        assert.strictEqual((await mk(undefined, undefined)).reasoning_effort, undefined, '未配置时应发送 reasoning_effort')
+        assert.strictEqual((await mk('auto', undefined)).reasoning_effort, undefined, 'auto 不应发送 reasoning_effort')
+        assert.strictEqual((await mk('low', undefined)).reasoning_effort, 'low')
+        assert.strictEqual((await mk('high', undefined)).reasoning_effort, 'high')
+        assert.strictEqual((await mk('low', '{"reasoning_effort":"max"}')).reasoning_effort, 'max', '额外参数中的取值应优先于下拉')
+    }
+    console.log('✓ 思考力度(auto 不发送 / low-high 发送 / 额外参数优先)')
+
     console.log('\n全部通过 🎉')
 }
 

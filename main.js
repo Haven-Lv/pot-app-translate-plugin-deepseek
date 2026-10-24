@@ -254,7 +254,7 @@ function parseExtraArguments(raw) {
 async function translate(text, from, to, options) {
     const { config, setResult, utils } = options ?? {}
     const { tauriFetch } = utils
-    const { requestPath, apiKey, model, stream, requestArguments } = config ?? {}
+    const { requestPath, apiKey, model, stream, requestArguments, reasoning } = config ?? {}
 
     const { chatUrl, modelsUrl } = buildUrls(requestPath)
     const headers = buildHeaders(apiKey)
@@ -274,9 +274,14 @@ async function translate(text, from, to, options) {
             content: `Translate into ${to}:\n"""\n${text}\n"""`,
         },
     ]
-    // 额外参数由用户显式填写(如推理力度、采样参数),随请求一并发送
+    // 额外参数由用户显式填写(如采样参数),随请求一并发送
     const extra = parseExtraArguments(requestArguments)
     const body = { ...extra, model: wanted, messages }
+    // 「思考力度」下拉:仅在用户明确选择且额外参数未包含时发送,
+    // 默认不发送(部分服务对非推理模型收到该参数会报错)
+    if ((reasoning === 'low' || reasoning === 'high') && body.reasoning_effort === undefined) {
+        body.reasoning_effort = reasoning
+    }
 
     if (stream !== 'false') {
         try {

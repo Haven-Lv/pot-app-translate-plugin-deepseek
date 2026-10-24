@@ -21,6 +21,16 @@
       "type": "input"
     },
     {
+      "key": "reasoning",
+      "display": "思考力度",
+      "type": "select",
+      "options": {
+        "auto": "默认 (不干预)",
+        "low": "关闭思考 (翻译更快)",
+        "high": "深入思考"
+      }
+    },
+    {
       "key": "requestArguments",
       "display": "额外请求参数 (JSON, 可选)",
       "type": "input"
