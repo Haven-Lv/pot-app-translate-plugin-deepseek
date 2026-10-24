@@ -234,27 +234,10 @@ async function streamChat(chatUrl, headers, body, setResult) {
     return stripEdgeQuotes(target)
 }
 
-function parseExtraArguments(raw) {
-    const input = (raw ?? '').trim()
-    if (input === '') {
-        return {}
-    }
-    let parsed
-    try {
-        parsed = JSON.parse(input)
-    } catch {
-        throw '「额外请求参数」不是合法的 JSON,示例:{"reasoning_effort":"low"}'
-    }
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw '「额外请求参数」必须是一个 JSON 对象,示例:{"reasoning_effort":"low"}'
-    }
-    return parsed
-}
-
 async function translate(text, from, to, options) {
     const { config, setResult, utils } = options ?? {}
     const { tauriFetch } = utils
-    const { requestPath, apiKey, model, stream, requestArguments, reasoning } = config ?? {}
+    const { requestPath, apiKey, model, stream, reasoning } = config ?? {}
 
     const { chatUrl, modelsUrl } = buildUrls(requestPath)
     const headers = buildHeaders(apiKey)
@@ -274,12 +257,10 @@ async function translate(text, from, to, options) {
             content: `Translate into ${to}:\n"""\n${text}\n"""`,
         },
     ]
-    // 额外参数由用户显式填写(如采样参数),随请求一并发送
-    const extra = parseExtraArguments(requestArguments)
-    const body = { ...extra, model: wanted, messages }
-    // 「思考力度」下拉:仅在用户明确选择且额外参数未包含时发送,
+    // 「思考力度」下拉:仅在用户明确选择时发送 reasoning_effort,
     // 默认不发送(部分服务对非推理模型收到该参数会报错)
-    if ((reasoning === 'low' || reasoning === 'high') && body.reasoning_effort === undefined) {
+    const body = { model: wanted, messages }
+    if (reasoning === 'low' || reasoning === 'high') {
         body.reasoning_effort = reasoning
     }
 

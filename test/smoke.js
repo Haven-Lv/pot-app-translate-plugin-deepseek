@@ -238,54 +238,25 @@ async function main() {
     }
     console.log('✓ 错误处理(401 / 空内容 / content 数组 / 未填地址)')
 
-    // 8. 额外请求参数:JSON 合并、model/messages 不被覆盖、非法输入报错
+    // 8. 思考力度下拉:auto 不发送、low/high 发送
     {
-        const { value, calls } = await run(
-            {
-                requestPath: 'https://x.example/v1',
-                apiKey: 'sk',
-                model: 'glm',
-                stream: 'false',
-                requestArguments: '{"reasoning_effort":"low","model":"hacked","stream":true}',
-            },
-            { tauriHandler: () => okChoice('带参数') }
-        )
-        const payload = calls[0].options.body.payload
-        assert.strictEqual(value, '带参数')
-        assert.strictEqual(payload.reasoning_effort, 'low', '额外参数应随请求发送')
-        assert.strictEqual(payload.model, 'glm', '额外参数不得覆盖 model')
-        assert.strictEqual(payload.stream, false, 'stream 应以插件开关为准')
-        await assert.rejects(
-            run({ requestPath: 'https://x.example', apiKey: 'sk', model: 'm', stream: 'false', requestArguments: '{bad json' }),
-            (e) => String(e).includes('额外请求参数')
-        )
-        await assert.rejects(
-            run({ requestPath: 'https://x.example', apiKey: 'sk', model: 'm', stream: 'false', requestArguments: '["a"]' }),
-            (e) => String(e).includes('JSON 对象')
-        )
-        // 流式路径同样合并额外参数
-        const sse = await run(
-            { requestPath: 'https://x.example/v1', apiKey: 'sk', model: 'glm', requestArguments: '{"reasoning_effort":"low"}' },
-            { windowFetch: sseWindowFetch(['data: {"choices":[{"delta":{"content":"快"}}]}\n\n', 'data: [DONE]\n\n']) }
-        )
-        assert.strictEqual(sse.value, '快')
-    }
-    console.log('✓ 额外请求参数(JSON 合并 / 覆盖保护 / 非法输入)')
-
-    // 9. 思考力度下拉:auto 不发送、low/high 发送、额外参数优先
-    {
-        const mk = (reasoning, extra) =>
+        const mk = (reasoning) =>
             run(
-                { requestPath: 'https://x.example/v1', apiKey: 'sk', model: 'm', stream: 'false', reasoning, requestArguments: extra },
+                { requestPath: 'https://x.example/v1', apiKey: 'sk', model: 'm', stream: 'false', reasoning },
                 { tauriHandler: () => okChoice('ok') }
             ).then(({ calls }) => calls[0].options.body.payload)
-        assert.strictEqual((await mk(undefined, undefined)).reasoning_effort, undefined, '未配置时应发送 reasoning_effort')
-        assert.strictEqual((await mk('auto', undefined)).reasoning_effort, undefined, 'auto 不应发送 reasoning_effort')
-        assert.strictEqual((await mk('low', undefined)).reasoning_effort, 'low')
-        assert.strictEqual((await mk('high', undefined)).reasoning_effort, 'high')
-        assert.strictEqual((await mk('low', '{"reasoning_effort":"max"}')).reasoning_effort, 'max', '额外参数中的取值应优先于下拉')
+        assert.strictEqual((await mk(undefined)).reasoning_effort, undefined, '未配置时不应发送 reasoning_effort')
+        assert.strictEqual((await mk('auto')).reasoning_effort, undefined, 'auto 不应发送 reasoning_effort')
+        assert.strictEqual((await mk('low')).reasoning_effort, 'low')
+        assert.strictEqual((await mk('high')).reasoning_effort, 'high')
+        // 旧版本残留的 requestArguments 配置应被彻底忽略
+        const legacy = await run(
+            { requestPath: 'https://x.example/v1', apiKey: 'sk', model: 'm', stream: 'false', requestArguments: '{"reasoning_effort":"max"}' },
+            { tauriHandler: () => okChoice('ok') }
+        )
+        assert.strictEqual(legacy.calls[0].options.body.payload.reasoning_effort, undefined, '残留 requestArguments 不应生效')
     }
-    console.log('✓ 思考力度(auto 不发送 / low-high 发送 / 额外参数优先)')
+    console.log('✓ 思考力度(auto 不发送 / low-high 发送 / 旧配置忽略)')
 
     console.log('\n全部通过 🎉')
 }
