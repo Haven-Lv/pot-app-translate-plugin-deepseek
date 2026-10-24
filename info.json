@@ -1,52 +1,67 @@
 {
-  "id": "plugin.com.TzuLao.deepseek",
+  "id": "plugin.com.generic.openai_compatible",
   "plugin_type": "translate",
-  "icon": "deepseek.svg",
-  "display": "deepseek",
-  "homepage": "https://github.com/tzulao55/pot-app-translate-plugin-deepseek",
+  "icon": "icon.svg",
+  "display": "OpenAI 兼容服务",
+  "homepage": "https://github.com/Haven-Lv/pot-app-translate-plugin-deepseek",
   "needs": [
     {
-      "key": "model",
-      "display": "模型选择",
-      "type": "select",
-      "options": {
-        "deepseek-chat": "deepseek-chat",
-        "deepseek-reasoner": "deepseek-reasoner"
-      },
-      "default": "deepseek-chat"
+      "key": "requestPath",
+      "display": "服务地址 (API URL)",
+      "type": "input"
     },
     {
       "key": "apiKey",
-      "display": "API密钥",
+      "display": "API 密钥 (API Key)",
       "type": "input"
+    },
+    {
+      "key": "model",
+      "display": "模型 (留空或填 ? 获取列表)",
+      "type": "input"
+    },
+    {
+      "key": "stream",
+      "display": "流式输出",
+      "type": "select",
+      "options": {
+        "true": "开启",
+        "false": "关闭"
+      }
     }
   ],
   "language": {
     "auto": "auto",
-    "zh_cn": "zh",
-    "zh_tw": "zh_HANT",
-    "en": "en",
-    "ja": "ja",
-    "ko": "ko",
-    "fr": "fr",
-    "es": "es",
-    "ru": "ru",
-    "de": "de",
-    "it": "it",
-    "tr": "tr",
-    "pt_pt": "pt",
-    "pt_br": "pt",
-    "vi": "vi",
-    "id": "id",
-    "th": "th",
-    "ms": "ms",
-    "ar": "ar",
-    "hi": "hi",
-    "mn_cy": "mn",
-    "mn_mo": "mn",
-    "km": "km",
-    "nb_no": "no",
-    "nn_no": "no",
-    "fa": "fa"
+    "zh_cn": "Simplified Chinese",
+    "zh_tw": "Traditional Chinese",
+    "yue": "Cantonese",
+    "ja": "Japanese",
+    "en": "English",
+    "ko": "Korean",
+    "fr": "French",
+    "es": "Spanish",
+    "ru": "Russian",
+    "de": "German",
+    "it": "Italian",
+    "tr": "Turkish",
+    "pt_pt": "Portuguese",
+    "pt_br": "Brazilian Portuguese",
+    "vi": "Vietnamese",
+    "id": "Indonesian",
+    "th": "Thai",
+    "ms": "Malay",
+    "ar": "Arabic",
+    "hi": "Hindi",
+    "mn_mo": "Mongolian",
+    "mn_cy": "Mongolian(Cyrillic)",
+    "km": "Khmer",
+    "nb_no": "Norwegian Bokmal",
+    "nn_no": "Norwegian Nynorsk",
+    "fa": "Persian",
+    "sv": "Swedish",
+    "pl": "Polish",
+    "nl": "Dutch",
+    "uk": "Ukrainian",
+    "he": "Hebrew"
   }
 }

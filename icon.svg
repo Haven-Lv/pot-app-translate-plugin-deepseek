@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#bg)"/>
+  <path d="M49.5 12.5l2.2 5.3 5.3 2.2-5.3 2.2-2.2 5.3-2.2-5.3-5.3-2.2 5.3-2.2z" fill="#fde047"/>
+  <path d="M22 18h20a9 9 0 0 1 9 9v8a9 9 0 0 1-9 9H31l-11 9v-9a9 9 0 0 1-7-8.8V27a9 9 0 0 1 9-9z" fill="#ffffff"/>
+  <text x="32" y="38" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#4f46e5" text-anchor="middle">AI</text>
+</svg>
