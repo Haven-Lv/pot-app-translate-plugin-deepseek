@@ -87,28 +87,48 @@ async function listModels(modelsUrl, headers, fetchImpl) {
     }
     const data = res.data
     const raw = Array.isArray(data) ? data : data?.data ?? data?.models ?? []
-    const models = [
-        ...new Set(
-            raw
-                .map((m) => (typeof m === 'string' ? m : m?.id ?? m?.name ?? m?.model ?? ''))
-                .filter(Boolean)
-        ),
-    ]
+    const entries = []
+    for (const m of raw) {
+        if (typeof m === 'string') {
+            entries.push({ id: m, chatCapable: true })
+            continue
+        }
+        const id = m?.id ?? m?.name ?? m?.model ?? ''
+        if (!id) {
+            continue
+        }
+        // 部分网关(如 magpie)会标注模型原生支持的接口;
+        // 只支持 /v1/messages 等非 OpenAI 接口的模型无法通过本插件调用
+        const endpoints = m?.native_endpoints
+        const chatCapable =
+            !Array.isArray(endpoints) ||
+            endpoints.length === 0 ||
+            endpoints.some((e) => String(e).includes('chat/completions'))
+        entries.push({ id, chatCapable })
+    }
+    const seen = new Set()
+    const models = []
+    for (const e of entries) {
+        if (!seen.has(e.id)) {
+            seen.add(e.id)
+            models.push(e)
+        }
+    }
     if (models.length === 0) {
         throw `未能从该地址解析出模型列表:${modelsUrl}\n${JSON.stringify(data).slice(0, 500)}`
     }
-    models.sort((a, b) => a.localeCompare(b))
-    const chatModels = models.filter((m) => !NON_CHAT_MODEL_PATTERN.test(m))
-    const otherModels = models.filter((m) => NON_CHAT_MODEL_PATTERN.test(m))
+    models.sort((a, b) => a.id.localeCompare(b.id))
+    const chatModels = models.filter((m) => m.chatCapable && !NON_CHAT_MODEL_PATTERN.test(m.id))
+    const otherModels = models.filter((m) => !(m.chatCapable && !NON_CHAT_MODEL_PATTERN.test(m.id)))
     const lines = [
-        `✅ 检测到 ${models.length} 个可用模型,请把要使用的模型名复制到插件配置的「模型」一栏,然后重新翻译:`,
+        `✅ 检测到 ${models.length} 个可用模型,请把要使用的模型名复制到插件配置的「模型」一栏,保存后重新翻译:`,
         '',
     ]
     if (chatModels.length > 0) {
-        lines.push('【对话模型(可用于翻译)】', ...chatModels)
+        lines.push('【对话模型(可用于翻译)】', ...chatModels.map((m) => m.id))
     }
     if (otherModels.length > 0) {
-        lines.push('', '【其他模型(一般不适用于翻译)】', ...otherModels)
+        lines.push('', '【不推荐(仅支持非 OpenAI 接口,或不适用于翻译)】', ...otherModels.map((m) => m.id))
     }
     return lines.join('\n')
 }

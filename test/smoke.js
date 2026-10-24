@@ -118,11 +118,36 @@ async function main() {
         )
         assert.ok(calls[0].options.method === 'GET', '获取模型列表应为 GET')
         assert.ok(value.includes('3 个可用模型'), '应提示模型总数')
-        assert.ok(value.indexOf('对话模型') < value.indexOf('其他模型'), '对话模型应排在前面')
+        assert.ok(value.indexOf('对话模型') < value.indexOf('不推荐'), '对话模型应排在前面')
         assert.ok(value.includes('deepseek-chat') && value.includes('deepseek-reasoner'), '应包含对话模型')
         assert.ok(!value.split('【对话模型')[0].includes('text-embedding'), '嵌入模型不应出现在对话组')
     }
     console.log('✓ 模型列表(空 / ? / ？ / models 触发,去重排序分类)')
+
+    // 2b. 带原生接口标注的网关(如 magpie):仅支持 /v1/messages 的模型应归入不推荐组
+    {
+        const { value } = await run(
+            { requestPath: 'http://127.0.0.1:3425/v1', apiKey: 'magpie', model: '?' },
+            {
+                tauriHandler: () => ({
+                    ok: true,
+                    status: 200,
+                    data: {
+                        data: [
+                            { id: 'siliconflow/zai-org/GLM-5.3-Flash', native_endpoints: ['/v1/chat/completions'] },
+                            { id: 'zcode/GLM-5.3-Flash', native_endpoints: ['/v1/messages'] },
+                            { id: 'workbuddy/glm-5.3', native_endpoints: ['/v1/chat/completions', '/v1/messages'] },
+                        ],
+                    },
+                }),
+            }
+        )
+        const chatPart = value.split('【不推荐')[0]
+        assert.ok(chatPart.includes('siliconflow/zai-org/GLM-5.3-Flash') && chatPart.includes('workbuddy/glm-5.3'), '支持 chat/completions 的模型应在对话组')
+        assert.ok(!chatPart.includes('zcode/GLM-5.3-Flash'), '仅支持 /v1/messages 的模型不应在对话组')
+        assert.ok(value.includes('zcode/GLM-5.3-Flash'), '非 OpenAI 接口模型仍应展示在不推荐组')
+    }
+    console.log('✓ 模型列表(native_endpoints 接口标注识别)')
 
     // 3. 非流式翻译:请求体、鉴权头、引号剥离
     {
