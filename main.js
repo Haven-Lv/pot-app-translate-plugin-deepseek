@@ -104,7 +104,10 @@ async function listModels(modelsUrl, headers, fetchImpl) {
             !Array.isArray(endpoints) ||
             endpoints.length === 0 ||
             endpoints.some((e) => String(e).includes('chat/completions'))
-        entries.push({ id, chatCapable })
+        // 部分网关标注思考力度档位;为空数组表示该模型思考不可关闭
+        const levels = m?.reasoning_levels
+        const thinkingFixed = Array.isArray(levels) && levels.length === 0
+        entries.push({ id, chatCapable, thinkingFixed })
     }
     const seen = new Set()
     const models = []
@@ -118,14 +121,19 @@ async function listModels(modelsUrl, headers, fetchImpl) {
         throw `未能从该地址解析出模型列表:${modelsUrl}\n${JSON.stringify(data).slice(0, 500)}`
     }
     models.sort((a, b) => a.id.localeCompare(b.id))
-    const chatModels = models.filter((m) => m.chatCapable && !NON_CHAT_MODEL_PATTERN.test(m.id))
-    const otherModels = models.filter((m) => !(m.chatCapable && !NON_CHAT_MODEL_PATTERN.test(m.id)))
+    const isChat = (m) => m.chatCapable && !NON_CHAT_MODEL_PATTERN.test(m.id)
+    const fastModels = models.filter((m) => isChat(m) && !m.thinkingFixed)
+    const fixedModels = models.filter((m) => isChat(m) && m.thinkingFixed)
+    const otherModels = models.filter((m) => !isChat(m))
     const lines = [
         `✅ 检测到 ${models.length} 个可用模型,请把要使用的模型名复制到插件配置的「模型」一栏,保存后重新翻译:`,
         '',
     ]
-    if (chatModels.length > 0) {
-        lines.push('【对话模型(可用于翻译)】', ...chatModels.map((m) => m.id))
+    if (fastModels.length > 0) {
+        lines.push('【对话模型(推荐,思考力度可调或无需思考)】', ...fastModels.map((m) => m.id))
+    }
+    if (fixedModels.length > 0) {
+        lines.push('', '【对话模型(思考无法关闭,翻译会偏慢)】', ...fixedModels.map((m) => m.id))
     }
     if (otherModels.length > 0) {
         lines.push('', '【不推荐(仅支持非 OpenAI 接口,或不适用于翻译)】', ...otherModels.map((m) => m.id))

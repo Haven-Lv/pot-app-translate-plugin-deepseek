@@ -124,7 +124,8 @@ async function main() {
     }
     console.log('✓ 模型列表(空 / ? / ？ / models 触发,去重排序分类)')
 
-    // 2b. 带原生接口标注的网关(如 magpie):仅支持 /v1/messages 的模型应归入不推荐组
+    // 2b. 带原生接口/思考档位标注的网关(如 magpie):
+    //     仅支持 /v1/messages 的模型、思考不可关闭的模型应分别归组
     {
         const { value } = await run(
             { requestPath: 'http://127.0.0.1:3425/v1', apiKey: 'magpie', model: '?' },
@@ -134,20 +135,23 @@ async function main() {
                     status: 200,
                     data: {
                         data: [
-                            { id: 'siliconflow/zai-org/GLM-5.3-Flash', native_endpoints: ['/v1/chat/completions'] },
-                            { id: 'zcode/GLM-5.3-Flash', native_endpoints: ['/v1/messages'] },
+                            { id: 'siliconflow/zai-org/GLM-5.3-Flash', native_endpoints: ['/v1/chat/completions'], reasoning_levels: ['low', 'high'] },
+                            { id: 'zcode/GLM-5.3-Flash', native_endpoints: ['/v1/messages'], reasoning_levels: ['low', 'high'] },
                             { id: 'workbuddy/glm-5.3', native_endpoints: ['/v1/chat/completions', '/v1/messages'] },
+                            { id: 'codearts/deepseek-v4.1-flash', native_endpoints: ['/v1/chat/completions'], reasoning_levels: [] },
                         ],
                     },
                 }),
             }
         )
-        const chatPart = value.split('【不推荐')[0]
-        assert.ok(chatPart.includes('siliconflow/zai-org/GLM-5.3-Flash') && chatPart.includes('workbuddy/glm-5.3'), '支持 chat/completions 的模型应在对话组')
-        assert.ok(!chatPart.includes('zcode/GLM-5.3-Flash'), '仅支持 /v1/messages 的模型不应在对话组')
-        assert.ok(value.includes('zcode/GLM-5.3-Flash'), '非 OpenAI 接口模型仍应展示在不推荐组')
+        const fastPart = value.split('【对话模型(思考')[0]
+        const fixedPart = value.split('【对话模型(思考')[1]?.split('【不推荐')[0] ?? ''
+        assert.ok(fastPart.includes('siliconflow/zai-org/GLM-5.3-Flash') && fastPart.includes('workbuddy/glm-5.3'), '思考可调/无标注的模型应在推荐组')
+        assert.ok(!fastPart.includes('zcode/') && !fastPart.includes('codearts/'), '非 OpenAI 接口与思考不可关闭的模型不应在推荐组')
+        assert.ok(fixedPart.includes('codearts/deepseek-v4.1-flash'), 'reasoning_levels 为空数组的模型应归入思考不可关闭组')
+        assert.ok(value.includes('zcode/GLM-5.3-Flash'), '仅支持 /v1/messages 的模型仍应展示在不推荐组')
     }
-    console.log('✓ 模型列表(native_endpoints 接口标注识别)')
+    console.log('✓ 模型列表(native_endpoints / reasoning_levels 标注识别)')
 
     // 3. 非流式翻译:请求体、鉴权头、引号剥离
     {
