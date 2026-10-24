@@ -17,7 +17,7 @@
 | one-api / new-api 中转 | `https://你的中转地址/v1` |
 | Gemini(OpenAI 兼容层) | `https://generativelanguage.googleapis.com/v1beta/openai` |
 
-> 由 [pot-app-translate-plugin-deepseek](https://github.com/Tzulao55/pot-app-translate-plugin-deepseek) 改造而来。
+> 由 [pot-app-translate-plugin-openai-compatible](https://github.com/Tzulao55/pot-app-translate-plugin-openai-compatible) 改造而来。
 
 ## 功能特性
 

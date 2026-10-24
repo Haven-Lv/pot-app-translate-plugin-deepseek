@@ -3,7 +3,7 @@
   "plugin_type": "translate",
   "icon": "icon.svg",
   "display": "OpenAI 兼容服务",
-  "homepage": "https://github.com/Haven-Lv/pot-app-translate-plugin-deepseek",
+  "homepage": "https://github.com/Haven-Lv/pot-app-translate-plugin-openai-compatible",
   "needs": [
     {
       "key": "requestPath",
